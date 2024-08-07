@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pacman Game</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+            color: #fff;
+        }
+        #gameCanvas {
+            background-color: #000;
+            border: 5px solid #fff;
+            display: block;
+        }
+        #controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        .button {
+            width: 50px;
+            height: 50px;
+            background-color: #fff;
+            color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 5px;
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        #gameOverPopup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            text-align: center;
+            border: 2px solid #fff;
+            border-radius: 10px;
+        }
+        #gameOverPopup button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="300" height="300"></canvas>
+    <div id="controls">
+        <div class="button" id="up">↑</div>
+    </div>
+    <div id="controls">
+        <div class="button" id="left">←</div>
+        <div class="button" id="down">↓</div>
+        <div class="button" id="right">→</div>
+    </div>
+    <div id="gameOverPopup">
+        <h1>Game Over!</h1>
+        <button onclick="restartGame()">Reiniciar</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let pacman = {
+            x: 20,
+            y: 280,
+            radius: 10,
+            angle1: 0.25 * Math.PI,
+            angle2: 1.75 * Math.PI,
+            speed: 3,
+            dx: 3,
+            dy: 0
+        };
+
+        const walls = [
+            {x: 20, y: 20, width: 100, height: 20},
+            {x: 20, y: 60, width: 20, height: 100},
+            {x: 80, y: 80, width: 200, height: 20},
+            {x: 100, y: 120, width: 20, height: 100},
+            {x: 150, y: 150, width: 150, height: 20},
+            {x: 200, y: 200, width: 20, height: 50}
+        ];
+
+        let enemies = [
+            {x: 50, y: 50, radius: 8, dx: 2, dy: 0},
+            {x: 250, y: 50, radius: 8, dx: -2, dy: 0},
+            {x: 150, y: 250, radius: 8, dx: 0, dy: 2}
+        ];
+
+        const keyState = {};
+
+        window.addEventListener('keydown', (e) => {
+            keyState[e.key] = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keyState[e.key] = false;
+        });
+
+        document.getElementById('up').addEventListener('click', () => setDirection(0, -pacman.speed, 1.75 * Math.PI, 1.25 * Math.PI));
+        document.getElementById('left').addEventListener('click', () => setDirection(-pacman.speed, 0, 1.25 * Math.PI, 0.75 * Math.PI));
+        document.getElementById('down').addEventListener('click', () => setDirection(0, pacman.speed, 0.75 * Math.PI, 0.25 * Math.PI));
+        document.getElementById('right').addEventListener('click', () => setDirection(pacman.speed, 0, 0.25 * Math.PI, 1.75 * Math.PI));
+
+        function setDirection(dx, dy, angle1, angle2) {
+            pacman.dx = dx;
+            pacman.dy = dy;
+            pacman.angle1 = angle1;
+            pacman.angle2 = angle2;
+        }
+
+        function movePacman() {
+            if (keyState['ArrowLeft'] || keyState['a']) {
+                setDirection(-pacman.speed, 0, 1.25 * Math.PI, 0.75 * Math.PI);
+            }
+            if (keyState['ArrowRight'] || keyState['d']) {
+                setDirection(pacman.speed, 0, 0.25 * Math.PI, 1.75 * Math.PI);
+            }
+            if (keyState['ArrowUp'] || keyState['w']) {
+                setDirection(0, -pacman.speed, 1.75 * Math.PI, 1.25 * Math.PI);
+            }
+            if (keyState['ArrowDown'] || keyState['s']) {
+                setDirection(0, pacman.speed, 0.75 * Math.PI, 0.25 * Math.PI);
+            }
+        }
+
+        function drawPacman() {
+            ctx.fillStyle = 'yellow';
+            ctx.beginPath();
+            ctx.arc(pacman.x, pacman.y, pacman.radius, pacman.angle1, pacman.angle2, false);
+            ctx.lineTo(pacman.x, pacman.y);
+            ctx.fill();
+        }
+
+        function drawWalls() {
+            ctx.fillStyle = 'blue';
+            walls.forEach(wall => {
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+            });
+        }
+
+        function drawEnemies() {
+            ctx.fillStyle = 'red';
+            enemies.forEach(enemy => {
+                ctx.beginPath();
+                ctx.arc(enemy.x, enemy.y, enemy.radius, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+        }
+
+        function moveEnemies() {
+            enemies.forEach(enemy => {
+                enemy.x += enemy.dx;
+                enemy.y += enemy.dy;
+
+                walls.forEach(wall => {
+                    if (
+                        enemy.x + enemy.radius > wall.x &&
+                        enemy.x - enemy.radius < wall.x + wall.width &&
+                        enemy.y + enemy.radius > wall.y &&
+                        enemy.y - enemy.radius < wall.y + wall.height
+                    ) {
+                        if (enemy.dx !== 0) {
+                            enemy.dx = -enemy.dx;
+                        }
+                        if (enemy.dy !== 0) {
+                            enemy.dy = -enemy.dy;
+                        }
+                    }
+                });
+
+                if (enemy.x - enemy.radius < 0 || enemy.x + enemy.radius > canvas.width) {
+                    enemy.dx = -enemy.dx;
+                }
+                if (enemy.y - enemy.radius < 0 || enemy.y + enemy.radius > canvas.height) {
+                    enemy.dy = -enemy.dy;
+                }
+            });
+        }
+
+        function checkCollision() {
+            walls.forEach(wall => {
+                if (
+                    pacman.x + pacman.radius > wall.x &&
+                    pacman.x - pacman.radius < wall.x + wall.width &&
+                    pacman.y + pacman.radius > wall.y &&
+                    pacman.y - pacman.radius < wall.y + wall.height
+                ) {
+                    if (pacman.dx > 0) pacman.x = wall.x - pacman.radius;
+                    if (pacman.dx < 0) pacman.x = wall.x + wall.width + pacman.radius;
+                    if (pacman.dy > 0) pacman.y = wall.y - pacman.radius;
+                    if (pacman.dy < 0) pacman.y = wall.y + wall.height + pacman.radius;
+                    pacman.dx = 0;
+                    pacman.dy = 0;
+                }
+            });
+
+            enemies.forEach(enemy => {
+                const dx = enemy.x - pacman.x;
+                const dy = enemy.y - pacman.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < pacman.radius + enemy.radius) {
+                    gameOver();
+                }
+            });
+        }
+
+        function gameOver() {
+            document.getElementById('gameOverPopup').style.display = 'block';
+            cancelAnimationFrame(animationId);
+        }
+
+        function restartGame() {
+            document.getElementById('gameOverPopup').style.display = 'none';
+            pacman = {
+                x: 20,
+                y: 280,
+                radius: 10,
+                angle1: 0.25 * Math.PI,
+                angle2: 1.75 * Math.PI,
+                speed: 3,
+                dx: 3,
+                dy: 0
+            };
+            enemies = [
+                {x: 50, y: 50, radius: 8, dx: 2, dy: 0},
+                {x: 250, y: 50, radius: 8, dx: -2, dy: 0},
+                {x: 150, y: 250, radius: 8, dx: 0, dy: 2}
+            ];
+            update();
+        }
+
+        let animationId;
+
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            movePacman();
+            pacman.x += pacman.dx;
+            pacman.y += pacman.dy;
+
+            // Keep Pacman inside the canvas
+            if (pacman.x - pacman.radius < 0) {
+                pacman.x = pacman.radius;
+            }
+            if (pacman.x + pacman.radius > canvas.width) {
+                pacman.x = canvas.width - pacman.radius;
+            }
+            if (pacman.y - pacman.radius < 0) {
+                pacman.y = pacman.radius;
+            }
+            if (pacman.y + pacman.radius > canvas.height) {
+                pacman.y = canvas.height - pacman.radius;
+            }
+
+            checkCollision();
+            drawWalls();
+            drawPacman();
+            moveEnemies();
+            drawEnemies();
+
+            animationId = requestAnimationFrame(update);
+        }
+
+        update();
+    </script>
+</body>
+</html>
