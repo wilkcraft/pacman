@@ -57,6 +57,24 @@
             font-size: 16px;
             cursor: pointer;
         }
+        #winPopup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            text-align: center;
+            border: 2px solid #fff;
+            border-radius: 10px;
+        }
+        #winPopup button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -71,6 +89,10 @@
     </div>
     <div id="gameOverPopup">
         <h1>Game Over!</h1>
+        <button onclick="restartGame()">Reiniciar</button>
+    </div>
+    <div id="winPopup">
+        <h1>¡Ganaste!</h1>
         <button onclick="restartGame()">Reiniciar</button>
     </div>
 
@@ -99,10 +121,36 @@
         ];
 
         let enemies = [
-            {x: 50, y: 50, radius: 8, dx: 2, dy: 0},
-            {x: 250, y: 50, radius: 8, dx: -2, dy: 0},
-            {x: 150, y: 250, radius: 8, dx: 0, dy: 2}
+            {x: 50, y: 50, radius: 8, dx: 1, dy: 0},
+            {x: 20, y: 250, radius: 8, dx: -1, dy: 0}, // Changed initial position
+            {x: 150, y: 250, radius: 8, dx: 0, dy: 1}
         ];
+
+        const greenSquare = {
+            x: canvas.width - 20,
+            y: 20,
+            width: 20,
+            height: 20
+        };
+
+        const yellowSquareLeft = {
+            x: 0,
+            y: canvas.height / 2 - 10,
+            width: 20,
+            height: 20
+        };
+
+        const yellowSquareRight = {
+            x: canvas.width - 20,
+            y: canvas.height / 2 - 10,
+            width: 20,
+            height: 20
+        };
+
+        // Introduce gameSpeed
+        const gameSpeed = 3;
+
+        let gameRunning = true; // Flag to control the game loop
 
         const keyState = {};
 
@@ -114,10 +162,10 @@
             keyState[e.key] = false;
         });
 
-        document.getElementById('up').addEventListener('click', () => setDirection(0, -pacman.speed, 1.75 * Math.PI, 1.25 * Math.PI));
-        document.getElementById('left').addEventListener('click', () => setDirection(-pacman.speed, 0, 1.25 * Math.PI, 0.75 * Math.PI));
-        document.getElementById('down').addEventListener('click', () => setDirection(0, pacman.speed, 0.75 * Math.PI, 0.25 * Math.PI));
-        document.getElementById('right').addEventListener('click', () => setDirection(pacman.speed, 0, 0.25 * Math.PI, 1.75 * Math.PI));
+        document.getElementById('up').addEventListener('click', () => setDirection(0, -gameSpeed, 1.75 * Math.PI, 1.25 * Math.PI));
+        document.getElementById('left').addEventListener('click', () => setDirection(-gameSpeed, 0, 1.25 * Math.PI, 0.75 * Math.PI));
+        document.getElementById('down').addEventListener('click', () => setDirection(0, gameSpeed, 0.75 * Math.PI, 0.25 * Math.PI));
+        document.getElementById('right').addEventListener('click', () => setDirection(gameSpeed, 0, 0.25 * Math.PI, 1.75 * Math.PI));
 
         function setDirection(dx, dy, angle1, angle2) {
             pacman.dx = dx;
@@ -128,16 +176,16 @@
 
         function movePacman() {
             if (keyState['ArrowLeft'] || keyState['a']) {
-                setDirection(-pacman.speed, 0, 1.25 * Math.PI, 0.75 * Math.PI);
+                setDirection(-gameSpeed, 0, 1.25 * Math.PI, 0.75 * Math.PI);
             }
             if (keyState['ArrowRight'] || keyState['d']) {
-                setDirection(pacman.speed, 0, 0.25 * Math.PI, 1.75 * Math.PI);
+                setDirection(gameSpeed, 0, 0.25 * Math.PI, 1.75 * Math.PI);
             }
             if (keyState['ArrowUp'] || keyState['w']) {
-                setDirection(0, -pacman.speed, 1.75 * Math.PI, 1.25 * Math.PI);
+                setDirection(0, -gameSpeed, 1.75 * Math.PI, 1.25 * Math.PI);
             }
             if (keyState['ArrowDown'] || keyState['s']) {
-                setDirection(0, pacman.speed, 0.75 * Math.PI, 0.25 * Math.PI);
+                setDirection(0, gameSpeed, 0.75 * Math.PI, 0.25 * Math.PI);
             }
         }
 
@@ -167,8 +215,8 @@
 
         function moveEnemies() {
             enemies.forEach(enemy => {
-                enemy.x += enemy.dx;
-                enemy.y += enemy.dy;
+                enemy.x += enemy.dx * gameSpeed;
+                enemy.y += enemy.dy * gameSpeed;
 
                 walls.forEach(wall => {
                     if (
@@ -193,6 +241,17 @@
                     enemy.dy = -enemy.dy;
                 }
             });
+        }
+
+        function drawGreenSquare() {
+            ctx.fillStyle = 'green';
+            ctx.fillRect(greenSquare.x, greenSquare.y, greenSquare.width, greenSquare.height);
+        }
+
+        function drawYellowSquares() {
+            ctx.fillStyle = 'yellow';
+            ctx.fillRect(yellowSquareLeft.x, yellowSquareLeft.y, yellowSquareLeft.width, yellowSquareLeft.height);
+            ctx.fillRect(yellowSquareRight.x, yellowSquareRight.y, yellowSquareRight.width, yellowSquareRight.height);
         }
 
         function checkCollision() {
@@ -221,15 +280,51 @@
                     gameOver();
                 }
             });
+
+            if (
+                pacman.x + pacman.radius > greenSquare.x &&
+                pacman.x - pacman.radius < greenSquare.x + greenSquare.width &&
+                pacman.y + pacman.radius > greenSquare.y &&
+                pacman.y - pacman.radius < greenSquare.y + greenSquare.height
+            ) {
+                winGame();
+            }
+
+            // Collision with yellow squares
+            if (
+                pacman.x + pacman.radius > yellowSquareLeft.x &&
+                pacman.x - pacman.radius < yellowSquareLeft.x + yellowSquareLeft.width &&
+                pacman.y + pacman.radius > yellowSquareLeft.y &&
+                pacman.y - pacman.radius < yellowSquareLeft.y + yellowSquareLeft.height
+            ) {
+                pacman.x = canvas.width - yellowSquareRight.width - pacman.radius;
+                pacman.y = yellowSquareRight.y + yellowSquareRight.height / 2;
+            } else if (
+                pacman.x + pacman.radius > yellowSquareRight.x &&
+                pacman.x - pacman.radius < yellowSquareRight.x + yellowSquareRight.width &&
+                pacman.y + pacman.radius > yellowSquareRight.y &&
+                pacman.y - pacman.radius < yellowSquareRight.y + yellowSquareRight.height
+            ) {
+                pacman.x = yellowSquareLeft.width + pacman.radius;
+                pacman.y = yellowSquareLeft.y + yellowSquareLeft.height / 2;
+            }
         }
 
         function gameOver() {
             document.getElementById('gameOverPopup').style.display = 'block';
+            gameRunning = false; // Stop the game loop
+            cancelAnimationFrame(animationId);
+        }
+
+        function winGame() {
+            document.getElementById('winPopup').style.display = 'block';
+            gameRunning = false; // Stop the game loop
             cancelAnimationFrame(animationId);
         }
 
         function restartGame() {
             document.getElementById('gameOverPopup').style.display = 'none';
+            document.getElementById('winPopup').style.display = 'none';
             pacman = {
                 x: 20,
                 y: 280,
@@ -241,42 +336,47 @@
                 dy: 0
             };
             enemies = [
-                {x: 50, y: 50, radius: 8, dx: 2, dy: 0},
-                {x: 250, y: 50, radius: 8, dx: -2, dy: 0},
-                {x: 150, y: 250, radius: 8, dx: 0, dy: 2}
+                {x: 50, y: 50, radius: 8, dx: 1, dy: 0},
+                {x: 20, y: 250, radius: 8, dx: -1, dy: 0}, // Changed initial position
+                {x: 150, y: 250, radius: 8, dx: 0, dy: 1}
             ];
+            gameRunning = true; // Restart the game loop
             update();
         }
 
         let animationId;
 
         function update() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            movePacman();
-            pacman.x += pacman.dx;
-            pacman.y += pacman.dy;
+            if (gameRunning) { // Only update if game is running
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                movePacman();
+                pacman.x += pacman.dx;
+                pacman.y += pacman.dy;
 
-            // Keep Pacman inside the canvas
-            if (pacman.x - pacman.radius < 0) {
-                pacman.x = pacman.radius;
-            }
-            if (pacman.x + pacman.radius > canvas.width) {
-                pacman.x = canvas.width - pacman.radius;
-            }
-            if (pacman.y - pacman.radius < 0) {
-                pacman.y = pacman.radius;
-            }
-            if (pacman.y + pacman.radius > canvas.height) {
-                pacman.y = canvas.height - pacman.radius;
-            }
+                // Keep Pacman inside the canvas
+                if (pacman.x - pacman.radius < 0) {
+                    pacman.x = pacman.radius;
+                }
+                if (pacman.x + pacman.radius > canvas.width) {
+                    pacman.x = canvas.width - pacman.radius;
+                }
+                if (pacman.y - pacman.radius < 0) {
+                    pacman.y = pacman.radius;
+                }
+                if (pacman.y + pacman.radius > canvas.height) {
+                    pacman.y = canvas.height - pacman.radius;
+                }
 
-            checkCollision();
-            drawWalls();
-            drawPacman();
-            moveEnemies();
-            drawEnemies();
+                checkCollision();
+                drawWalls();
+                drawPacman();
+                moveEnemies();
+                drawEnemies();
+                drawGreenSquare();
+                drawYellowSquares();
 
-            animationId = requestAnimationFrame(update);
+                animationId = requestAnimationFrame(update);
+            }
         }
 
         update();
